@@ -544,6 +544,7 @@
   composer: auto,
   section: none,
   subsection: none,
+  subsubsection: none,
   title: none,
   ..bodies,
 ) = {
@@ -607,12 +608,28 @@
         states._new-subsection(duplicate: self.duplicate, short-title: subsection.short-title, subsection.title)
         utils.bookmark(level: 2, numbering: self.numbering, subsection.title)
       }
+      // if subsubsection is not none, then create a new subsubsection
+      let subsubsection = utils.unify-section(subsubsection)
+      if subsubsection != none {
+        states._new-subsubsection(
+          duplicate: self.duplicate,
+          short-title: subsubsection.short-title,
+          subsubsection.title,
+        )
+        utils.bookmark(level: 3, numbering: self.numbering, subsubsection.title)
+      }
       states._sections-step(repetitions)
     }
     // 3. slide title part
     states.slide-title-state.update(title)
   }
   self.subslide = 1
+
+  if repeat == 0 {
+    return {
+      setting(_update-states(1))
+    }
+  }
   // for single page slide, get the repetitions
   if repeat == auto {
     let (_, repetitions) = _parse-content(
@@ -681,9 +698,9 @@
 // touying-slides
 #let touying-slides(self: none, slide-level: 1, body) = {
   // make sure 0 <= slide-level <= 2
-  assert(type(slide-level) == int and 0 <= slide-level and slide-level <= 2, message: "slide-level should be 0, 1 or 2")
+  assert(type(slide-level) == int and 0 <= slide-level and slide-level <= 3, message: "slide-level should be 0, 1, 2, or 3")
   // init
-  let (section, subsection, title, slide) = (none, none, none, ())
+  let (section, subsection, subsubsection, title, slide) = (none, none, none, none, ())
   let last-title = none
   let children = if utils.is-sequence(body) { body.children } else { (body,) }
   // convert all sequence to array recursively, and then flatten the array
@@ -711,20 +728,20 @@
     } else if type(child) == content and child.func() == metadata and type(child.value) == dictionary and child.value.at("kind", default: none) == "touying-slide-wrapper" {
       slide = utils.trim(slide)
       if slide != () {
-        (self.methods.slide)(self: self, section: section, subsection: subsection, ..(if last-title != none { (title: last-title) }), slide.sum())
-        (section, subsection, title, slide) = (none, none, none, ())
+        (self.methods.slide)(self: self, section: section, subsection: subsection, subsubsection: subsubsection, ..(if last-title != none { (title: last-title) }), slide.sum())
+        (section, subsection, subsubsection, title, slide) = (none, none, none, none, ())
       }
       if child.value.name in self.slides {
-        (child.value.fn)(section: section, subsection: subsection, ..(if last-title != none { (title: last-title) }), ..child.value.args)
+        (child.value.fn)(section: section, subsection: subsection, subsubsection: subsubsection, ..(if last-title != none { (title: last-title) }), ..child.value.args)
       } else {
         (child.value.fn)(..child.value.args)
       }
-      (section, subsection, title, slide) = (none, none, none, ())
+      (section, subsection, subsubsection, title, slide) = (none, none, none, none, ())
     } else if type(child) == content and child.func() == heading and child.depth <= slide-level + 1 {
       slide = utils.trim(slide)
       if (child.depth == 1 and section != none) or (child.depth == 2 and subsection != none) or (child.depth > slide-level and title != none) or slide != () {
-        (self.methods.slide)(self: self, section: section, subsection: subsection, ..(if last-title != none { (title: last-title) }), slide.sum(default: ""))
-        (section, subsection, title, slide) = (none, none, none, ())
+        (self.methods.slide)(self: self, section: section, subsection: subsection, subsubsection: subsubsection, ..(if last-title != none { (title: last-title) }), slide.sum(default: ""))
+        (section, subsection, subsubsection, title, slide) = (none, none, none, none, ())
         if child.depth <= slide-level {
           last-title = none
         }
@@ -754,6 +771,18 @@
           title = child.body
           last-title = child-body
         }
+      } else if child.depth == 3 {
+        if slide-level >= 3 {
+          if type(self.methods.at("touying-new-subsubsection-slide", default: none)) == function {
+            (self.methods.touying-new-subsubsection-slide)(self: self, child-body)
+          } else {
+            subsubsection = child-body
+          }
+          last-title = none
+        } else {
+          title = child.body
+          last-title = child-body
+        }
       } else {
         title = child.body
         last-title = child-body
@@ -763,8 +792,8 @@
     }
   }
   slide = utils.trim(slide)
-  if section != none or subsection != none or title != none or slide != () {
-    (self.methods.slide)(self: self, section: section, subsection: subsection, ..(if last-title != none { (title: last-title) }), slide.sum(default: ""))
+  if section != none or subsection != none or subsubsection != none or title != none or slide != () {
+    (self.methods.slide)(self: self, section: section, subsection: subsection, subsubsection: subsubsection, ..(if last-title != none { (title: last-title) }), slide.sum(default: ""))
   }
   if is-end {
     children.slice(i).sum(default: "")

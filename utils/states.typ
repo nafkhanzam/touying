@@ -49,26 +49,58 @@
   })
 }
 
+#let _new-subsubsection(short-title: auto, duplicate: false, title) = context {
+  let loc = here()
+  sections-state.update(sections => {
+    let last-section = sections.pop()
+    let last-subsection = last-section.children.pop()
+    let last-subsubsection = (kind: "none")
+    let i = -1
+    while last-subsubsection.kind != "subsubsection" {
+      last-subsubsection = last-subsection.children.at(i, default: (kind: "subsubsection", title: none, short-title: none, loc: none, count: 0, children: ()))
+      i += 1
+    }
+    if duplicate or last-subsubsection.title != title or last-subsubsection.short-title != short-title {
+      last-subsection.children.push((kind: "subsubsection", title: title, short-title: short-title, loc: loc, count: 0, children: ()))
+    }
+    last-section.children.push(last-subsection)
+    sections.push(last-section)
+    sections
+  })
+}
+
 #let _sections-step(repetitions) = context {
   let loc = here()
   sections-state.update(sections => {
     let last-section = sections.pop()
     if last-section.children.len() == 0 or last-section.children.last().kind == "slide" {
+      //? update for section
       last-section.children.push((kind: "slide", loc: loc, count: repetitions))
       last-section.count += 1
       sections.push(last-section)
-    } else {
-      // update for subsection
+    } else if last-section.children.last().children.len() == 0 or last-section.children.last().children.last().kind == "slide" {
+      //? update for subsection
       let last-subsection = last-section.children.pop()
       last-subsection.children.push((kind: "slide", loc: loc, count: repetitions))
       last-subsection.count += 1
-      last-section.count += 1
       last-section.children.push(last-subsection)
+      last-section.count += 1
+      sections.push(last-section)
+    } else {
+      //? update for subsubsection
+      let last-subsection = last-section.children.pop()
+      let last-subsubsection = last-subsection.children.pop()
+      last-subsubsection.children.push((kind: "slide", loc: loc, count: repetitions))
+      last-subsubsection.count += 1
+      last-subsection.children.push(last-subsubsection)
+      last-subsection.count += 1
+      last-section.children.push(last-subsection)
+      last-section.count += 1
       sections.push(last-section)
     }
     sections
-  }
-)}
+  })
+}
 
 #let touying-final-sections(callback) = context {
   callback(sections-state.final())
@@ -103,6 +135,16 @@
   let subsections = sections.last().children.filter(v => v.kind == "subsection")
   if subsections.len() > 0 {
     subsections.last().title
+  } else {
+    none
+  }
+}
+
+#let current-subsubsection-title = context {
+  let sections = sections-state.get()
+  let subsubsections = sections.last().children.last().children.filter(v => v.kind == "subsubsection")
+  if subsubsections.len() > 0 {
+    subsubsections.last().title
   } else {
     none
   }
