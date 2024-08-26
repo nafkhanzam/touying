@@ -54,6 +54,7 @@
   sections-state.update(sections => {
     let last-section = sections.pop()
     let last-subsection = last-section.children.pop()
+    last-subsection.children = last-subsection.at("children", default: ())
     let last-subsubsection = (kind: "none")
     let i = -1
     while last-subsubsection.kind != "subsubsection" {
@@ -142,7 +143,11 @@
 
 #let current-subsubsection-title = context {
   let sections = sections-state.get()
-  let subsubsections = sections.last().children.last().children.filter(v => v.kind == "subsubsection")
+  let subsections = sections.last().children.filter(v => v.at("children", default: none) != none)
+  if subsections.len() == 0 or subsections.last().at("children", default: none) == none {
+    return none
+  }
+  let subsubsections = subsections.last().children.filter(v => v.kind == "subsubsection")
   if subsubsections.len() > 0 {
     subsubsections.last().title
   } else {
